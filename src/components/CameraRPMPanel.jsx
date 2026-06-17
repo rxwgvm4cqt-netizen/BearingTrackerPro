@@ -49,6 +49,8 @@ function CameraRPMPanel({ rpm }) {
   const [cameraStatus, setCameraStatus] = useState(CAMERA_STATUS.MOCK)
   const [cameraError, setCameraError] = useState('')
   const [selectedDeviceId, setSelectedDeviceId] = useState('')
+  const [deviceListMessage, setDeviceListMessage] = useState('')
+  const [deviceListScanned, setDeviceListScanned] = useState(false)
   const [videoDevices, setVideoDevices] = useState([])
 
   const stopCameraStream = () => {
@@ -75,6 +77,12 @@ function CameraRPMPanel({ rpm }) {
     const devices = await navigator.mediaDevices.enumerateDevices()
     const videoInputs = devices.filter((device) => device.kind === 'videoinput')
     setVideoDevices(videoInputs)
+    setDeviceListScanned(true)
+    setDeviceListMessage(
+      videoInputs.length === 0
+        ? 'Keine Kameraliste verfuegbar - Safari erlaubt Auswahl ggf. erst nach Berechtigung.'
+        : '',
+    )
 
     return videoInputs
   }
@@ -85,44 +93,52 @@ function CameraRPMPanel({ rpm }) {
       video: getVideoConstraints(deviceId),
     })
 
-  const startCamera = async (deviceId = '') => {
-    let stream
-    let activeDeviceId = deviceId
-
+  const startDefaultCamera = async () => {
     stopCameraStream()
-
-    try {
-      stream = await requestCameraStream(activeDeviceId)
-    } catch (error) {
-      if (!activeDeviceId) {
-        throw error
-      }
-
-      activeDeviceId = ''
-      setCameraError('Ausgewaehlte Kamera nicht verfuegbar, nutze Standardkamera')
-      stream = await requestCameraStream('')
-    }
-
+    const stream = await requestCameraStream('')
     await attachStream(stream)
+    setCameraStatus(CAMERA_STATUS.LIVE)
 
     const devices = await collectVideoDevices()
     const streamDeviceId = stream.getVideoTracks()[0]?.getSettings?.().deviceId
-    const preferredDeviceId = activeDeviceId || getPreferredDeviceId(devices)
+    setSelectedDeviceId(streamDeviceId || getPreferredDeviceId(devices))
+  }
 
-    setSelectedDeviceId(streamDeviceId || preferredDeviceId)
+  const startSelectedCamera = async (deviceId) => {
+    stopCameraStream()
+    const stream = await requestCameraStream(deviceId)
+    await attachStream(stream)
+    setCameraStatus(CAMERA_STATUS.LIVE)
+    await collectVideoDevices()
+  }
 
-    if (!deviceId && preferredDeviceId && preferredDeviceId !== streamDeviceId) {
-      try {
-        const preferredStream = await requestCameraStream(preferredDeviceId)
-        stopCameraStream()
-        await attachStream(preferredStream)
-        setSelectedDeviceId(preferredDeviceId)
-      } catch {
-        setCameraError('Bevorzugte Kamera nicht verfuegbar, nutze Standardkamera')
-      }
+  const refreshVideoDevices = async () => {
+    setDeviceListMessage('')
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setCameraStatus(CAMERA_STATUS.BLOCKED)
+      setCameraError('Kamera blockiert: HTTPS oder localhost erforderlich')
+      return
     }
 
-    setCameraStatus(CAMERA_STATUS.LIVE)
+    let permissionStream = null
+
+    try {
+      if (!streamRef.current) {
+        permissionStream = await requestCameraStream('')
+      }
+
+      const devices = await collectVideoDevices()
+
+      if (!selectedDeviceId && devices.length > 0) {
+        setSelectedDeviceId(getPreferredDeviceId(devices))
+      }
+    } catch (error) {
+      setCameraStatus(CAMERA_STATUS.ERROR)
+      setCameraError(error?.message || 'Kameraliste konnte nicht geladen werden')
+    } finally {
+      permissionStream?.getTracks().forEach((track) => track.stop())
+    }
   }
 
   const handleStartCamera = async () => {
@@ -135,7 +151,7 @@ function CameraRPMPanel({ rpm }) {
     }
 
     try {
-      await startCamera(selectedDeviceId)
+      await startDefaultCamera()
     } catch (error) {
       stopCameraStream()
       setCameraStatus(CAMERA_STATUS.ERROR)
@@ -154,12 +170,16 @@ function CameraRPMPanel({ rpm }) {
     setCameraError('')
 
     try {
-      await startCamera(nextDeviceId)
+      await startSelectedCamera(nextDeviceId)
     } catch (error) {
       stopCameraStream()
       setCameraStatus(CAMERA_STATUS.ERROR)
       setCameraError(error?.message || 'Kamera nicht erlaubt oder nicht verfuegbar')
     }
+  }
+
+  const handleRefreshDevices = async () => {
+    await refreshVideoDevices()
   }
 
   const handleStopCamera = () => {
@@ -223,17 +243,32 @@ function CameraRPMPanel({ rpm }) {
             Kamera stoppen
           </button>
         </div>
-        {videoDevices.length > 0 && (
-          <label className="camera-rpm-panel__device-select">
-            <span>Kamera</span>
-            <select value={selectedDeviceId} onChange={handleCameraChange}>
-              {videoDevices.map((device, index) => (
-                <option key={device.deviceId} value={device.deviceId}>
-                  {getDeviceLabel(device, index)}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="camera-rpm-panel__device-row">
+          {videoDevices.length > 0 && (
+            <label className="camera-rpm-panel__device-select">
+              <span>Kamera</span>
+              <select value={selectedDeviceId} onChange={handleCameraChange}>
+                {videoDevices.map((device, index) => (
+                  <option key={device.deviceId} value={device.deviceId}>
+                    {getDeviceLabel(device, index)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <button type="button" onClick={handleRefreshDevices}>
+            Kameras neu laden
+          </button>
+        </div>
+        {deviceListScanned && (
+          <span className="camera-rpm-panel__debug">
+            Anzahl gefundener Kameras: {videoDevices.length}
+          </span>
+        )}
+        {deviceListMessage && (
+          <span className="camera-rpm-panel__secure-hint">
+            {deviceListMessage}
+          </span>
         )}
         <span className="camera-rpm-panel__hint">OCR vorbereitet</span>
         <span className="camera-rpm-panel__secure-hint">

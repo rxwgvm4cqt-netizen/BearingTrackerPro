@@ -465,6 +465,14 @@ h2 {
   text-transform: uppercase;
 }
 
+.camera-rpm-panel__device-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px;
+  align-items: end;
+  min-width: 0;
+}
+
 .camera-rpm-panel__device-select select {
   width: 100%;
   min-height: 26px;
@@ -478,11 +486,29 @@ h2 {
   font-weight: 800;
 }
 
+.camera-rpm-panel__device-row button {
+  min-height: 26px;
+  padding: 3px 6px;
+  color: #ecfff5;
+  background: rgba(41, 209, 125, 0.1);
+  border: 1px solid rgba(41, 209, 125, 0.28);
+  border-radius: 6px;
+  font-size: 0.54rem;
+  font-weight: 850;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
 .camera-rpm-panel__secure-hint,
-.camera-rpm-panel__error {
+.camera-rpm-panel__error,
+.camera-rpm-panel__debug {
   font-size: 0.56rem;
   font-weight: 750;
   line-height: 1.1;
+}
+
+.camera-rpm-panel__debug {
+  color: rgba(140, 154, 165, 0.84);
 }
 
 .camera-rpm-panel__secure-hint {
