@@ -361,6 +361,10 @@ h2 {
   object-fit: cover;
 }
 
+.camera-rpm-panel__ocr-canvas {
+  display: none;
+}
+
 .camera-rpm-panel__preview span {
   position: relative;
   z-index: 1;
@@ -452,6 +456,51 @@ h2 {
   color: rgba(230, 237, 243, 0.42);
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.1);
+}
+
+.camera-rpm-panel__ocr-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.camera-rpm-panel__ocr-controls button {
+  min-height: 26px;
+  padding: 4px 5px;
+  color: #dffbff;
+  background: rgba(42, 212, 255, 0.11);
+  border: 1px solid rgba(42, 212, 255, 0.3);
+  border-radius: 6px;
+  font-size: 0.58rem;
+  font-weight: 850;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.camera-rpm-panel__ocr-controls button:disabled {
+  color: rgba(230, 237, 243, 0.42);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.camera-rpm-panel__ocr-readout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 6px;
+  color: rgba(230, 237, 243, 0.78);
+  font-size: 0.56rem;
+  font-weight: 760;
+  line-height: 1.1;
+}
+
+.camera-rpm-panel__ocr-readout small {
+  grid-column: 1 / -1;
+  min-width: 0;
+  color: rgba(140, 154, 165, 0.9);
+  font: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .camera-rpm-panel__device-select {

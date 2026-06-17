@@ -17,10 +17,12 @@ function TrackingPage({
   onDefectHeard,
   onJogDirectionChange,
   onJogRpmChange,
+  onOcrStop,
   onPlantStop,
   onResetTracking,
   onSetCageRunning,
   onSetOuterRunning,
+  onStableOcrRpm,
   onTogglePositioningMode,
   selectedBearingPreset,
   trackingMetrics,
@@ -87,7 +89,11 @@ function TrackingPage({
         </section>
 
         <aside className="tracking-side-panel" aria-label="Tracking Steuerung">
-          <CameraRPMPanel rpm={formatDecimal(trackingMetrics.rpm)} />
+          <CameraRPMPanel
+            rpm={formatDecimal(trackingMetrics.rpm)}
+            onOcrStop={onOcrStop}
+            onStableRpm={onStableOcrRpm}
+          />
 
           <BearingPresetSelect
             compact

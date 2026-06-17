@@ -57,9 +57,14 @@ function App() {
   const [bearingData, setBearingData] = useState({ ...initialPreset })
   const [trackingState, setTrackingState] = useState(createInitialTrackingState)
   const [jogRpm, setJogRpm] = useState(DEFAULT_JOG_RPM)
+  const [rpmState, setRpmState] = useState({
+    source: 'mock',
+    value: MOCK_RPM,
+  })
 
   const rollerCount = Math.max(1, bearingData.rollerCount || 198)
-  const cageRpm = getCageRpm(MOCK_RPM, bearingData)
+  const activeBaseRpm = rpmState.value ?? MOCK_RPM
+  const cageRpm = getCageRpm(activeBaseRpm, bearingData)
 
   const handleLogin = ({ username, password }) => {
     const loginIsValid =
@@ -89,6 +94,20 @@ function App() {
       ...createInitialTrackingState(),
       defectEvents: currentState.defectEvents,
     }))
+  }
+
+  const handleStableOcrRpm = (rpm) => {
+    setRpmState({
+      source: 'ocr',
+      value: rpm,
+    })
+  }
+
+  const handleOcrStop = () => {
+    setRpmState({
+      source: 'mock',
+      value: MOCK_RPM,
+    })
   }
 
   const handleReferenceBladeChange = (referenceBlade) => {
@@ -160,7 +179,7 @@ function App() {
     const now = Date.now()
 
     setTrackingState((currentState) => {
-      const currentRpm = MOCK_RPM * currentState.rpmScale
+      const currentRpm = activeBaseRpm * currentState.rpmScale
 
       return {
         ...currentState,
@@ -227,7 +246,7 @@ function App() {
           minute: '2-digit',
           second: '2-digit',
         }),
-        rpm: MOCK_RPM * currentState.rpmScale,
+        rpm: activeBaseRpm * currentState.rpmScale,
         referenceBlade: currentState.referenceBlade,
         rollerNumber: suspiciousRollerIndex + 1,
         angleToA,
@@ -271,8 +290,8 @@ function App() {
               currentState.stopStartRPM *
                 (1 - nextPlantStopElapsedMs / (STOP_DURATION_SECONDS * 1000)),
             )
-          : MOCK_RPM * currentState.rpmScale
-        const currentFrameRpm = MOCK_RPM * currentState.rpmScale
+          : activeBaseRpm * currentState.rpmScale
+        const currentFrameRpm = activeBaseRpm * currentState.rpmScale
         const frameOuterRpm = currentState.plantStopping
           ? (currentFrameRpm + nextCurrentRpm) / 2
           : currentFrameRpm
@@ -315,7 +334,8 @@ function App() {
           plantStopping: plantHasStopped ? false : currentState.plantStopping,
           plantStopped: plantHasStopped ? true : currentState.plantStopped,
           plantStopElapsedMs: plantHasStopped ? 0 : nextPlantStopElapsedMs,
-          rpmScale: plantHasStopped ? 0 : nextCurrentRpm / MOCK_RPM,
+          rpmScale:
+            plantHasStopped || activeBaseRpm <= 0 ? 0 : nextCurrentRpm / activeBaseRpm,
         }
       })
 
@@ -326,6 +346,7 @@ function App() {
 
     return () => cancelAnimationFrame(animationFrameId)
   }, [
+    activeBaseRpm,
     bearingData,
     cageRpm,
     isLoggedIn,
@@ -336,7 +357,7 @@ function App() {
   ])
 
   const trackingMetrics = useMemo(() => {
-    const currentRpm = MOCK_RPM * trackingState.rpmScale
+    const currentRpm = activeBaseRpm * trackingState.rpmScale
     const currentCageRpm = getCageRpm(currentRpm, bearingData)
     const remainingStopSeconds = trackingState.plantStopping
       ? Math.max(
@@ -383,7 +404,7 @@ function App() {
         trackingState.outerAngleDeg,
       ),
     }
-  }, [bearingData, rollerCount, trackingState])
+  }, [activeBaseRpm, bearingData, rollerCount, trackingState])
 
   const sharedPageProps = {
     bearingData,
@@ -396,11 +417,13 @@ function App() {
     onDefectHeard: handleDefectHeard,
     onJogDirectionChange: setJogDirection,
     onJogRpmChange: setJogRpm,
+    onOcrStop: handleOcrStop,
     onPlantStop: handlePlantStop,
     onReferenceBladeChange: handleReferenceBladeChange,
     onResetTracking: handleResetTracking,
     onSetCageRunning: setCageRunning,
     onSetOuterRunning: setOuterRunning,
+    onStableOcrRpm: handleStableOcrRpm,
     onTogglePositioningMode: togglePositioningMode,
     selectedBearingPreset,
     trackingMetrics,
