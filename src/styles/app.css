@@ -59,6 +59,37 @@
   text-transform: uppercase;
 }
 
+.shell-topbar__actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.language-toggle {
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  overflow: hidden;
+  background: rgba(18, 25, 34, 0.78);
+  border: 1px solid rgba(42, 212, 255, 0.22);
+  border-radius: 8px;
+}
+
+.language-toggle button {
+  min-height: 36px;
+  padding: 0 10px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.language-toggle button.is-active {
+  color: #07100d;
+  background: var(--cyan);
+}
+
 .logout-button {
   min-height: 44px;
   padding: 0 18px;
@@ -1468,6 +1499,12 @@ h2 {
     min-height: 32px;
     padding-inline: 12px;
     font-size: 0.78rem;
+  }
+
+  .language-toggle button {
+    min-height: 30px;
+    padding-inline: 8px;
+    font-size: 0.66rem;
   }
 
   .app-main {

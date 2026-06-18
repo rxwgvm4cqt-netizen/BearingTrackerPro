@@ -2,67 +2,75 @@ import BearingPresetSelect from '../components/BearingPresetSelect'
 
 const fieldGroups = [
   {
-    title: 'Geometrie',
+    titleKey: 'geometry',
     fields: [
-      ['outerDiameterCm', 'Aussendurchmesser', 'cm'],
-      ['innerDiameterCm', 'Innendurchmesser', 'cm'],
-      ['pitchDiameterCm', 'Teilkreisdurchmesser', 'cm'],
-      ['rollerDiameterCm', 'Rollerdurchmesser', 'cm'],
+      ['outerDiameterCm', 'outerDiameter', 'cm'],
+      ['innerDiameterCm', 'innerDiameter', 'cm'],
+      ['pitchDiameterCm', 'pitchDiameter', 'cm'],
+      ['rollerDiameterCm', 'rollerDiameter', 'cm'],
     ],
   },
   {
-    title: 'Aufbau',
+    titleKey: 'structure',
     fields: [
-      ['rollerCount', 'Rolleranzahl', ''],
-      ['rows', 'Reihen', ''],
-      ['bearingType', 'Lagertyp', ''],
-      ['rotatingRing', 'Rotierender Ring', ''],
+      ['rollerCount', 'rollerCount', ''],
+      ['rows', 'rows', ''],
+      ['bearingType', 'bearingType', ''],
+      ['rotatingRing', 'rotatingRing', ''],
     ],
   },
   {
-    title: 'Tracking',
+    titleKey: 'tracking',
     fields: [
-      ['innerRingFixed', 'Innenring fixiert', ''],
-      ['direction', 'Drehrichtung', ''],
-      ['rpmSource', 'RPM Quelle', ''],
-      ['id', 'Preset ID', ''],
+      ['innerRingFixed', 'innerRingFixed', ''],
+      ['direction', 'direction', ''],
+      ['rpmSource', 'rpmSource', ''],
+      ['id', 'presetId', ''],
     ],
   },
 ]
 
-function formatValue(value) {
+function formatValue(value, t) {
   if (typeof value === 'boolean') {
-    return value ? 'Ja' : 'Nein'
+    return value ? t('yes') : t('no')
   }
 
   return value
 }
 
-function BearingDataPage({ bearingData, selectedBearingPreset, onPresetChange }) {
+function BearingDataPage({
+  bearingData,
+  selectedBearingPreset,
+  t,
+  onPresetChange,
+}) {
   return (
     <div className="page">
       <header className="page-header">
         <div>
-          <span className="eyebrow">Lagerdaten</span>
+          <span className="eyebrow">{t('bearingData')}</span>
           <h1>{bearingData.label}</h1>
         </div>
         <BearingPresetSelect
           selectedPresetId={selectedBearingPreset.id}
+          t={t}
           onPresetChange={onPresetChange}
         />
       </header>
 
       <section className="data-groups">
         {fieldGroups.map((group) => (
-          <article className="data-group" key={group.title}>
-            <h2>{group.title}</h2>
+          <article className="data-group" key={group.titleKey}>
+            <h2>{t(group.titleKey)}</h2>
             <div className="readonly-fields">
-              {group.fields.map(([key, label, unit]) => (
+              {group.fields.map(([key, labelKey, unit]) => (
                 <label className="readonly-field" key={key}>
-                  <span>{label}</span>
+                  <span>{t(labelKey)}</span>
                   <input
                     readOnly
-                    value={`${formatValue(bearingData[key])}${unit ? ` ${unit}` : ''}`}
+                    value={`${formatValue(bearingData[key], t)}${
+                      unit ? ` ${unit}` : ''
+                    }`}
                   />
                 </label>
               ))}

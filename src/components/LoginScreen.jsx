@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-function LoginScreen({ onLogin }) {
+function LoginScreen({ onLogin, t }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -14,7 +14,7 @@ function LoginScreen({ onLogin }) {
     })
 
     if (!loginSucceeded) {
-      setError('Benutzername oder Passwort ist falsch.')
+      setError(t('invalidLogin'))
       return
     }
 
@@ -23,15 +23,15 @@ function LoginScreen({ onLogin }) {
 
   return (
     <main className="login-screen">
-      <section className="login-panel" aria-label="Login">
+      <section className="login-panel" aria-label={t('login')}>
         <div className="login-panel__header">
-          <span className="eyebrow">Secure Access</span>
-          <h1>Bearing Tracker Pro</h1>
+          <span className="eyebrow">{t('secureAccess')}</span>
+          <h1>{t('appTitle')}</h1>
         </div>
 
         <form className="login-form" onSubmit={handleSubmit}>
           <label>
-            <span>Benutzername</span>
+            <span>{t('username')}</span>
             <input
               autoComplete="username"
               autoFocus
@@ -43,7 +43,7 @@ function LoginScreen({ onLogin }) {
           </label>
 
           <label>
-            <span>Passwort</span>
+            <span>{t('password')}</span>
             <input
               autoComplete="current-password"
               type="password"
@@ -55,7 +55,7 @@ function LoginScreen({ onLogin }) {
           {error && <p className="login-error">{error}</p>}
 
           <button type="submit" className="login-button">
-            Login
+            {t('login')}
           </button>
         </form>
       </section>

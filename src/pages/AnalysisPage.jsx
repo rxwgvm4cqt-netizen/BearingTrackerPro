@@ -39,6 +39,7 @@ function AnalysisPage({
   bearingData,
   defectEvents,
   selectedBearingPreset,
+  t,
   trackingMetrics,
   onPresetChange,
 }) {
@@ -46,60 +47,61 @@ function AnalysisPage({
     <div className="page">
       <header className="page-header">
         <div>
-          <span className="eyebrow">Analyse</span>
-          <h1>Auswertung</h1>
+          <span className="eyebrow">{t('analysis')}</span>
+          <h1>{t('analysisTitle')}</h1>
         </div>
         <BearingPresetSelect
           selectedPresetId={selectedBearingPreset.id}
+          t={t}
           onPresetChange={onPresetChange}
         />
       </header>
 
       <section className="kpi-grid">
         <KPIBox
-          label="Außenring Umdrehungen"
+          label={t('outerRevolutions')}
           value={formatDecimal(trackingMetrics.outerRevolutions, 3)}
           meta={bearingData.label}
         />
         <KPIBox
-          label="Roller/Käfig Umdrehungen"
+          label={t('cageRevolutions')}
           value={formatDecimal(trackingMetrics.cageRevolutions, 3)}
           meta={`${formatDecimal(trackingMetrics.cageRpm, 2)} RPM`}
           tone="orange"
         />
         <KPIBox
-          label="Winkel zu A"
+          label={t('angleToA')}
           value={formatAngle(trackingMetrics.angleToA)}
-          meta="Verdächtiger Roller"
+          meta={t('suspiciousRoller')}
         />
         <KPIBox
-          label="Referenzblatt"
+          label={t('referenceBlade')}
           value={trackingMetrics.referenceBlade}
-          meta="Aktuell"
+          meta={t('active')}
           tone="green"
         />
         <KPIBox
-          label="Verdächtiger Roller"
+          label={t('suspiciousRoller')}
           value={trackingMetrics.suspiciousRollerNumber ?? '--'}
-          meta="Nummer"
+          meta={t('number')}
           tone="orange"
         />
         <KPIBox
           compact
-          label="Position"
+          label={t('position')}
           value={trackingMetrics.positionLabel}
-          meta="Sektor"
+          meta={t('sector')}
         />
       </section>
 
       <section className="plant-stop-status analysis-stop-status">
         <strong>{trackingMetrics.plantStatus}</strong>
         <div>
-          <span>Stop gestartet um</span>
+          <span>{t('stopStartedAt')}</span>
           <b>{formatTimestamp(trackingMetrics.plantStopStartTime)}</b>
         </div>
         <div>
-          <span>Start-RPM</span>
+          <span>{t('startRpm')}</span>
           <b>
             {trackingMetrics.plantStopStartRPM === null
               ? '--'
@@ -107,15 +109,15 @@ function AnalysisPage({
           </b>
         </div>
         <div>
-          <span>Stop-Dauer</span>
+          <span>{t('stopDuration')}</span>
           <b>{trackingMetrics.stopDurationSeconds}s</b>
         </div>
         <div>
-          <span>Aktuelle RPM</span>
+          <span>{t('currentRpm')}</span>
           <b>{formatDecimal(trackingMetrics.rpm)}</b>
         </div>
         <div>
-          <span>Restzeit</span>
+          <span>{t('remainingTime')}</span>
           <b>{formatStopTime(trackingMetrics.estimatedStopSeconds)}</b>
         </div>
         <div>
@@ -127,8 +129,8 @@ function AnalysisPage({
       <section className="analysis-layout">
         <article className="placeholder-panel placeholder-panel--chart">
           <div>
-            <span className="eyebrow">Winkelverlauf</span>
-            <h2>Signal- und Winkelkurve</h2>
+            <span className="eyebrow">{t('angleHistory')}</span>
+            <h2>{t('signalAngleCurve')}</h2>
           </div>
           <div className="chart-placeholder" aria-hidden="true">
             <span />
@@ -140,14 +142,14 @@ function AnalysisPage({
 
         <article className="placeholder-panel">
           <div>
-            <span className="eyebrow">Event-Historie</span>
-            <h2>Markierungen</h2>
+            <span className="eyebrow">{t('defectHistory')}</span>
+            <h2>{t('markers')}</h2>
           </div>
           {defectEvents.length === 0 ? (
             <div className="event-list">
               <div>
-                <strong>Keine Defektevents</strong>
-                <span>Warte auf DEFEKT GEHÖRT im Tracking</span>
+                <strong>{t('defectEventsEmpty')}</strong>
+                <span>{t('trackingWaitingForDefect')}</span>
               </div>
             </div>
           ) : (
@@ -157,7 +159,7 @@ function AnalysisPage({
                   <strong>{event.timestamp}</strong>
                   <span>RPM {formatDecimal(event.rpm, 2)}</span>
                   <span>Ref {event.referenceBlade}</span>
-                  <span>Roller {event.rollerNumber}</span>
+                  <span>{t('roller')} {event.rollerNumber}</span>
                   <span>{formatAngle(event.angleToA)}</span>
                 </article>
               ))}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import AppShell from './components/AppShell'
 import LoginScreen from './components/LoginScreen'
 import TrackingPage from './pages/TrackingPage'
@@ -6,6 +6,7 @@ import AnalysisPage from './pages/AnalysisPage'
 import BearingDataPage from './pages/BearingDataPage'
 import { bearingPresets } from './data/bearingPresets'
 import { LOGIN_STORAGE_KEY, STATIC_LOGIN } from './config/auth'
+import { LANGUAGE_STORAGE_KEY, translations } from './i18n/translations'
 import {
   LISTENING_POSITION_ANGLE,
   describeRollerPosition,
@@ -23,6 +24,27 @@ const MIN_JOG_RPM = 0.02
 const MAX_JOG_RPM = 1
 const JOG_RPM_STEP = 0.02
 const ROLLER_10_OCLOCK_START_ANGLE = LISTENING_POSITION_ANGLE + 90
+const DEFAULT_LANGUAGE = 'de'
+
+function getStoredLanguage() {
+  const storedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY)
+
+  return storedLanguage === 'en' || storedLanguage === 'de'
+    ? storedLanguage
+    : DEFAULT_LANGUAGE
+}
+
+function translatePositionLabel(positionLabel, t) {
+  const positionLabelMap = {
+    'kein Defekt markiert': 'noDefectMarked',
+    'nahe 10 Uhr': 'positionNearTen',
+    'zwischen A und B': 'positionBetweenAB',
+    'zwischen B und C': 'positionBetweenBC',
+    'zwischen C und A': 'positionBetweenCA',
+  }
+
+  return positionLabelMap[positionLabel] ? t(positionLabelMap[positionLabel]) : positionLabel
+}
 
 function createInitialTrackingState() {
   return {
@@ -51,6 +73,7 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(
     () => localStorage.getItem(LOGIN_STORAGE_KEY) === 'true',
   )
+  const [language, setLanguageState] = useState(getStoredLanguage)
   const [activePage, setActivePage] = useState('tracking')
   const [selectedBearingPreset, setSelectedBearingPreset] =
     useState(initialPreset)
@@ -65,6 +88,20 @@ function App() {
   const rollerCount = Math.max(1, bearingData.rollerCount || 198)
   const activeBaseRpm = rpmState.value ?? MOCK_RPM
   const cageRpm = getCageRpm(activeBaseRpm, bearingData)
+  const t = useCallback(
+    (key) =>
+      translations[language]?.[key] ?? translations[DEFAULT_LANGUAGE][key] ?? key,
+    [language],
+  )
+
+  const handleLanguageChange = (nextLanguage) => {
+    if (nextLanguage !== 'de' && nextLanguage !== 'en') {
+      return
+    }
+
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage)
+    setLanguageState(nextLanguage)
+  }
 
   const handleLogin = ({ username, password }) => {
     const loginIsValid =
@@ -384,10 +421,10 @@ function App() {
       estimatedStopSeconds: remainingStopSeconds,
       plantStopped: trackingState.plantStopped,
       plantStatus: trackingState.plantStopping
-        ? 'ANLAGE STOPPT'
+        ? t('plantStopping')
         : trackingState.plantStopped
-          ? 'ANLAGE STEHT'
-          : 'RUNNING',
+          ? t('plantStopped')
+          : t('running'),
       outerRevolutions: trackingState.outerRevolutions,
       cageRevolutions: trackingState.cageRevolutions,
       angleToA,
@@ -396,15 +433,18 @@ function App() {
         trackingState.suspiciousRollerIndex === null
           ? null
           : trackingState.suspiciousRollerIndex + 1,
-      positionLabel: describeRollerPosition(
-        trackingState.suspiciousRollerIndex,
-        rollerCount,
-        trackingState.cageAngleDeg,
-        trackingState.referenceBlade,
-        trackingState.outerAngleDeg,
+      positionLabel: translatePositionLabel(
+        describeRollerPosition(
+          trackingState.suspiciousRollerIndex,
+          rollerCount,
+          trackingState.cageAngleDeg,
+          trackingState.referenceBlade,
+          trackingState.outerAngleDeg,
+        ),
+        t,
       ),
     }
-  }, [activeBaseRpm, bearingData, rollerCount, trackingState])
+  }, [activeBaseRpm, bearingData, rollerCount, t, trackingState])
 
   const sharedPageProps = {
     bearingData,
@@ -426,6 +466,7 @@ function App() {
     onStableOcrRpm: handleStableOcrRpm,
     onTogglePositioningMode: togglePositioningMode,
     selectedBearingPreset,
+    t,
     trackingMetrics,
     trackingState,
     onPresetChange: handlePresetChange,
@@ -438,14 +479,17 @@ function App() {
   }
 
   if (!isLoggedIn) {
-    return <LoginScreen onLogin={handleLogin} />
+    return <LoginScreen t={t} onLogin={handleLogin} />
   }
 
   return (
     <AppShell
       activePage={activePage}
+      language={language}
       onLogout={handleLogout}
+      onLanguageChange={handleLanguageChange}
       onPageChange={setActivePage}
+      t={t}
     >
       {pages[activePage]}
     </AppShell>

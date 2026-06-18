@@ -30,9 +30,9 @@ const OCR_STATUS = {
   RUNNING: 'running',
 }
 
-export function captureFrameForOCR(videoElement, canvasElement) {
+export function captureFrameForOCR(videoElement, canvasElement, t) {
   if (!videoElement || !canvasElement) {
-    throw new Error('OCR-Bildquelle nicht verfuegbar')
+    throw new Error(t('ocrSourceMissing'))
   }
 
   const sourceVideoWidth = videoElement.videoWidth
@@ -41,7 +41,7 @@ export function captureFrameForOCR(videoElement, canvasElement) {
   const previewHeight = videoElement.clientHeight
 
   if (!sourceVideoWidth || !sourceVideoHeight || !previewWidth || !previewHeight) {
-    throw new Error('Kamerabild noch nicht bereit')
+    throw new Error(t('ocrSourceNotReady'))
   }
 
   const coverScale = Math.max(
@@ -68,7 +68,7 @@ export function captureFrameForOCR(videoElement, canvasElement) {
   )
 
   if (sourceWidth <= 0 || sourceHeight <= 0) {
-    throw new Error('OCR-Bereich ausserhalb des Kamerabildes')
+    throw new Error(t('ocrZoneOutside'))
   }
 
   const outputScale = OCR_OUTPUT_WIDTH / sourceWidth
@@ -110,8 +110,8 @@ export function captureFrameForOCR(videoElement, canvasElement) {
   return canvasElement
 }
 
-function getDeviceLabel(device, index) {
-  return device.label || `Kamera ${index + 1}`
+function getDeviceLabel(device, index, t) {
+  return device.label || `${t('cameraSelect')} ${index + 1}`
 }
 
 function getPreferredDeviceId(devices) {
@@ -146,7 +146,7 @@ function getVideoConstraints(deviceId) {
   }
 }
 
-function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
+function CameraRPMPanel({ onOcrStop, onStableRpm, rpm, t }) {
   const videoRef = useRef(null)
   const ocrCanvasRef = useRef(null)
   const ocrActiveRef = useRef(false)
@@ -168,7 +168,7 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
   const [ocrRpm, setOcrRpm] = useState(null)
   const [stableOcrRpm, setStableOcrRpm] = useState(null)
   const [ocrStatus, setOcrStatus] = useState(OCR_STATUS.OFF)
-  const [ocrPlausibility, setOcrPlausibility] = useState('OCR aus')
+  const [ocrPlausibility, setOcrPlausibility] = useState(t('ocrOff'))
   const [videoDevices, setVideoDevices] = useState([])
 
   const stopCameraStream = () => {
@@ -198,7 +198,7 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
     setDeviceListScanned(true)
     setDeviceListMessage(
       videoInputs.length === 0
-        ? 'Keine Kameraliste verfuegbar - Safari erlaubt Auswahl ggf. erst nach Berechtigung.'
+        ? t('cameraDeviceListUnavailable')
         : '',
     )
 
@@ -255,7 +255,7 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
     setOcrRpm(null)
     setStableOcrRpm(null)
     setOcrStatus(OCR_STATUS.OFF)
-    setOcrPlausibility('OCR aus')
+    setOcrPlausibility(t('ocrOff'))
 
     if (resetToMock) {
       onOcrStop?.()
@@ -264,7 +264,7 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
     try {
       await terminateOcrWorker()
     } catch {
-      setOcrError('OCR konnte nicht sauber beendet werden')
+      setOcrError(t('ocrCannotStop'))
     }
   }
 
@@ -296,7 +296,7 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
           : OCR_STATUS.RUNNING,
       )
       const worker = await getOcrWorker()
-      const frame = captureFrameForOCR(videoRef.current, ocrCanvasRef.current)
+      const frame = captureFrameForOCR(videoRef.current, ocrCanvasRef.current, t)
       const {
         data: { text },
       } = await worker.recognize(frame)
@@ -309,7 +309,7 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
 
       if (parsedRpm === null) {
         setOcrStatus(OCR_STATUS.RUNNING)
-        setOcrPlausibility('OCR unsicher')
+        setOcrPlausibility(t('ocrUncertain'))
       } else {
         const nextSamples = [...ocrSamplesRef.current, parsedRpm].slice(-3)
         const stableRpm = getStableRpmValue(nextSamples)
@@ -318,10 +318,10 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
 
         if (stableRpm === null) {
           setOcrStatus(OCR_STATUS.RUNNING)
-          setOcrPlausibility('OCR unsicher')
+          setOcrPlausibility(t('ocrUncertain'))
         } else {
           setOcrStatus(OCR_STATUS.RECOGNIZED)
-          setOcrPlausibility('OCR stabil')
+          setOcrPlausibility(t('ocrStable'))
           stableOcrRpmRef.current = stableRpm
           setStableOcrRpm(stableRpm)
           setOcrRpm(stableRpm)
@@ -332,7 +332,7 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
       setOcrError('')
     } catch (error) {
       setOcrStatus(OCR_STATUS.ERROR)
-      setOcrError(error?.message || 'OCR fehlgeschlagen')
+      setOcrError(error?.message || t('ocrFailed'))
     } finally {
       setOcrDurationMs(Math.round(performance.now() - startedAt))
       ocrJobRunningRef.current = false
@@ -363,7 +363,7 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setCameraStatus(CAMERA_STATUS.BLOCKED)
-      setCameraError('Kamera blockiert: HTTPS oder localhost erforderlich')
+      setCameraError(t('cameraApiBlocked'))
       return
     }
 
@@ -381,7 +381,7 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
       }
     } catch (error) {
       setCameraStatus(CAMERA_STATUS.ERROR)
-      setCameraError(error?.message || 'Kameraliste konnte nicht geladen werden')
+      setCameraError(error?.message || t('cameraListLoadFailed'))
     } finally {
       permissionStream?.getTracks().forEach((track) => track.stop())
     }
@@ -392,7 +392,7 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setCameraStatus(CAMERA_STATUS.BLOCKED)
-      setCameraError('Kamera blockiert: HTTPS oder localhost erforderlich')
+      setCameraError(t('cameraApiBlocked'))
       return
     }
 
@@ -401,7 +401,7 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
     } catch (error) {
       stopCameraStream()
       setCameraStatus(CAMERA_STATUS.ERROR)
-      setCameraError(error?.message || 'Kamera nicht erlaubt oder nicht verfuegbar')
+      setCameraError(error?.message || t('cameraNotAllowed'))
     }
   }
 
@@ -420,7 +420,7 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
     } catch (error) {
       stopCameraStream()
       setCameraStatus(CAMERA_STATUS.ERROR)
-      setCameraError(error?.message || 'Kamera nicht erlaubt oder nicht verfuegbar')
+      setCameraError(error?.message || t('cameraNotAllowed'))
     }
   }
 
@@ -438,7 +438,7 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
   const handleStartOcr = async () => {
     if (cameraStatus !== CAMERA_STATUS.LIVE || !streamRef.current) {
       setOcrStatus(OCR_STATUS.ERROR)
-      setOcrError('OCR benoetigt eine laufende Kamera')
+      setOcrError(t('ocrNeedsCamera'))
       return
     }
 
@@ -451,7 +451,7 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
     setOcrRawText('')
     setOcrRpm(null)
     setStableOcrRpm(null)
-    setOcrPlausibility('Stabilisierung laeuft')
+    setOcrPlausibility(t('ocrUncertain'))
     setOcrStatus(OCR_STATUS.RUNNING)
     scheduleOcrPass()
     void runOcrPass()
@@ -468,30 +468,36 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
     }
   }, [])
 
+  useEffect(() => {
+    if (ocrStatus === OCR_STATUS.OFF) {
+      setOcrPlausibility(t('ocrOff'))
+    }
+  }, [ocrStatus, t])
+
   const ocrStatusLabel =
     ocrStatus === OCR_STATUS.RUNNING
-      ? 'OCR unsicher'
+      ? t('ocrUncertain')
       : ocrStatus === OCR_STATUS.RECOGNIZED
-        ? 'OCR stabil'
+        ? t('ocrStable')
         : ocrStatus === OCR_STATUS.ERROR
-          ? 'OCR Fehler'
-          : 'OCR aus'
+          ? t('ocrError')
+          : t('ocrOff')
 
   const statusLabel =
     cameraStatus === CAMERA_STATUS.LIVE
-      ? 'Kamera Live'
+      ? t('cameraLive')
       : cameraStatus === CAMERA_STATUS.BLOCKED
-        ? 'Kamera blockiert'
+        ? t('cameraBlocked')
       : cameraStatus === CAMERA_STATUS.ERROR
-        ? 'Kamera Fehler'
-        : 'Kamera Mock aktiv'
+        ? t('cameraError')
+        : t('cameraMockActive')
 
   return (
-    <section className="camera-rpm-panel" aria-label="Kamera RPM">
+    <section className="camera-rpm-panel" aria-label={t('cameraRpm')}>
       <div className="camera-rpm-panel__preview">
         <video
           ref={videoRef}
-          aria-label="Kamera Livebild"
+          aria-label={t('cameraLive')}
           autoPlay
           muted
           playsInline
@@ -502,14 +508,14 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
           className="camera-rpm-panel__ocr-canvas"
         />
         <div className="camera-rpm-panel__ocr-roi" aria-hidden="true">
-          <span>RPM Bereich</span>
+          <span>{t('ocrRoiLabel')}</span>
         </div>
-        {cameraStatus !== CAMERA_STATUS.LIVE && <span>Camera Preview</span>}
+        {cameraStatus !== CAMERA_STATUS.LIVE && <span>{t('cameraPreview')}</span>}
       </div>
       <div className="camera-rpm-panel__content">
         <div className="camera-rpm-panel__header">
           <div>
-            <span className="eyebrow">Kamera RPM</span>
+            <span className="eyebrow">{t('cameraRpm')}</span>
             <h2>{statusLabel}</h2>
           </div>
           <span
@@ -524,36 +530,36 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
             type="button"
             onClick={handleStartCamera}
           >
-            Kamera starten
+            {t('cameraStart')}
           </button>
           <button
             disabled={cameraStatus !== CAMERA_STATUS.LIVE}
             type="button"
             onClick={handleStopCamera}
           >
-            Kamera stoppen
+            {t('cameraStop')}
           </button>
         </div>
         <div className="camera-rpm-panel__device-row">
           {videoDevices.length > 0 && (
             <label className="camera-rpm-panel__device-select">
-              <span>Kamera</span>
+              <span>{t('cameraSelect')}</span>
               <select value={selectedDeviceId} onChange={handleCameraChange}>
                 {videoDevices.map((device, index) => (
                   <option key={device.deviceId} value={device.deviceId}>
-                    {getDeviceLabel(device, index)}
+                    {getDeviceLabel(device, index, t)}
                   </option>
                 ))}
               </select>
             </label>
           )}
           <button type="button" onClick={handleRefreshDevices}>
-            Kameras neu laden
+            {t('refreshCameras')}
           </button>
         </div>
         {deviceListScanned && (
           <span className="camera-rpm-panel__debug">
-            Anzahl gefundener Kameras: {videoDevices.length}
+            {t('cameraDeviceCount')}: {videoDevices.length}
           </span>
         )}
         {deviceListMessage && (
@@ -567,37 +573,47 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
             type="button"
             onClick={handleStartOcr}
           >
-            OCR Start
+            {t('ocrStart')}
           </button>
           <button
             disabled={!ocrActiveRef.current}
             type="button"
             onClick={handleStopOcr}
           >
-            OCR Stop
+            {t('ocrStop')}
           </button>
         </div>
         <div className="camera-rpm-panel__ocr-readout">
           <span>{ocrStatusLabel}</span>
           <span>{ocrPlausibility}</span>
-          <span>Kandidat {ocrRpm === null ? '--' : ocrRpm.toFixed(2)}</span>
-          <span>Stabil {stableOcrRpm === null ? '--' : stableOcrRpm.toFixed(2)}</span>
-          <span>OCR Dauer {ocrDurationMs === null ? '--' : ocrDurationMs} ms</span>
+          <span>
+            {t('ocrCandidate')} {ocrRpm === null ? '--' : ocrRpm.toFixed(2)}
+          </span>
+          <span>
+            {t('ocrStable')} {stableOcrRpm === null ? '--' : stableOcrRpm.toFixed(2)}
+          </span>
+          <span>
+            {t('ocrDuration')} {ocrDurationMs === null ? '--' : ocrDurationMs} ms
+          </span>
           {ocrCandidates.length > 0 && (
             <small>
-              Kandidaten:{' '}
+              {t('ocrCandidates')}:{' '}
               {ocrCandidates
                 .slice(0, 4)
                 .map((candidate) => candidate.toFixed(2))
                 .join(', ')}
             </small>
           )}
-          {ocrRawText && <small>Text: {ocrRawText.slice(0, 28)}</small>}
+          {ocrRawText && (
+            <small>
+              {t('ocrText')}: {ocrRawText.slice(0, 28)}
+            </small>
+          )}
         </div>
         {ocrError && <span className="camera-rpm-panel__error">{ocrError}</span>}
-        <span className="camera-rpm-panel__hint">OCR vorbereitet</span>
+        <span className="camera-rpm-panel__hint">{t('ocrPrepared')}</span>
         <span className="camera-rpm-panel__secure-hint">
-          Kamera benoetigt HTTPS oder localhost
+          {t('cameraNeedsSecureContext')}
         </span>
         {cameraError && (
           <span className="camera-rpm-panel__error">{cameraError}</span>

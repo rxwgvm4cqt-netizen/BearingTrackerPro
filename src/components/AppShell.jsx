@@ -1,16 +1,38 @@
 import BottomNav from './BottomNav'
 
-function AppShell({ activePage, onLogout, onPageChange, children }) {
+function AppShell({
+  activePage,
+  children,
+  language,
+  onLanguageChange,
+  onLogout,
+  onPageChange,
+  t,
+}) {
   return (
     <div className="app-shell">
       <header className="shell-topbar">
-        <span>Bearing Tracker Pro</span>
-        <button type="button" className="logout-button" onClick={onLogout}>
-          Logout
-        </button>
+        <span>{t('appTitle')}</span>
+        <div className="shell-topbar__actions">
+          <div className="language-toggle" aria-label="Language">
+            {['de', 'en'].map((languageCode) => (
+              <button
+                className={language === languageCode ? 'is-active' : ''}
+                key={languageCode}
+                type="button"
+                onClick={() => onLanguageChange(languageCode)}
+              >
+                {languageCode.toUpperCase()}
+              </button>
+            ))}
+          </div>
+          <button type="button" className="logout-button" onClick={onLogout}>
+            {t('logout')}
+          </button>
+        </div>
       </header>
       <main className="app-main">{children}</main>
-      <BottomNav activePage={activePage} onPageChange={onPageChange} />
+      <BottomNav activePage={activePage} t={t} onPageChange={onPageChange} />
     </div>
   )
 }

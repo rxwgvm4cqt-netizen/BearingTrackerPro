@@ -25,6 +25,7 @@ function TrackingPage({
   onStableOcrRpm,
   onTogglePositioningMode,
   selectedBearingPreset,
+  t,
   trackingMetrics,
   trackingState,
   onPresetChange,
@@ -51,8 +52,8 @@ function TrackingPage({
     <div className="page page--tracking">
       <header className="tracking-header">
         <div className="tracking-title-stack">
-          <span className="eyebrow">Industrial Roller Tracking</span>
-          <h1>Bearing Tracker Pro</h1>
+          <span className="eyebrow">{t('trackingSubtitle')}</span>
+          <h1>{t('appTitle')}</h1>
         </div>
       </header>
 
@@ -60,6 +61,7 @@ function TrackingPage({
         <div className="tracking-visual-column">
           <BearingVisualization
             bearingData={bearingData}
+            t={t}
             trackingState={trackingState}
           />
         </div>
@@ -70,27 +72,28 @@ function TrackingPage({
             className="primary-action-button primary-action-button--start"
             onClick={() => onSetOuterRunning(true)}
           >
-            START AUSSENRING
+            {t('startOuterRing')}
           </button>
           <button
             type="button"
             className="primary-action-button primary-action-button--start"
             onClick={() => onSetCageRunning(true)}
           >
-            START ROLLER
+            {t('startRoller')}
           </button>
           <button
             type="button"
             className="primary-action-button primary-action-button--warning"
             onClick={onPlantStop}
           >
-            ANLAGEN STOP
+            {t('plantStop')}
           </button>
         </section>
 
-        <aside className="tracking-side-panel" aria-label="Tracking Steuerung">
+        <aside className="tracking-side-panel" aria-label={t('trackingControls')}>
           <CameraRPMPanel
             rpm={formatDecimal(trackingMetrics.rpm)}
+            t={t}
             onOcrStop={onOcrStop}
             onStableRpm={onStableOcrRpm}
           />
@@ -98,19 +101,24 @@ function TrackingPage({
           <BearingPresetSelect
             compact
             selectedPresetId={selectedBearingPreset.id}
+            t={t}
             onPresetChange={onPresetChange}
           />
 
           <section className="kpi-grid tracking-kpi-grid">
             <KPIBox
               compact
-              label="Außenring Umdrehungen"
+              label={t('outerRevolutions')}
               value={formatDecimal(trackingMetrics.outerRevolutions, 3)}
-              meta={trackingState.outerRunning ? 'läuft' : 'gestoppt'}
+              meta={
+                trackingState.outerRunning
+                  ? t('turbineStatusRunning')
+                  : t('turbineStatusStopped')
+              }
             />
             <KPIBox
               compact
-              label="Roller/Käfig Umdrehungen"
+              label={t('cageRevolutions')}
               value={formatDecimal(trackingMetrics.cageRevolutions, 3)}
               meta={`${formatDecimal(trackingMetrics.cageRpm, 2)} RPM`}
               tone="orange"
@@ -119,38 +127,38 @@ function TrackingPage({
 
           <section
             className="action-grid tracking-defect-row"
-            aria-label="Tracking Aktionen"
+            aria-label={t('trackingActions')}
           >
             <button
               type="button"
               className="action-button action-button--danger"
               onClick={onDefectHeard}
             >
-              DEFEKT GEHÖRT
+              {t('defectHeard')}
             </button>
           </section>
 
-          <section className="motion-controls" aria-label="Start Stop Steuerung">
+          <section className="motion-controls" aria-label={t('trackingControls')}>
             <button
               type="button"
               className="control-button"
               onClick={() => onSetOuterRunning(false)}
             >
-              Stop Außenring
+              {t('stopOuterRing')}
             </button>
             <button
               type="button"
               className="control-button"
               onClick={() => onSetCageRunning(false)}
             >
-              Stop Roller
+              {t('stopRoller')}
             </button>
             <button
               type="button"
               className="control-button control-button--combined"
               onClick={onCombinedStartStop}
             >
-              {combinedIsRunning ? 'Gemeinsam Stop' : 'Gemeinsam Start'}
+              {combinedIsRunning ? t('combinedStop') : t('combinedStart')}
             </button>
             <button
               type="button"
@@ -160,7 +168,7 @@ function TrackingPage({
               disabled={!positioningAllowed}
               onClick={onTogglePositioningMode}
             >
-              Positionieren
+              {t('positioning')}
             </button>
             <button
               type="button"
@@ -193,7 +201,7 @@ function TrackingPage({
               className="control-button control-button--reset"
               onClick={onResetTracking}
             >
-              Reset
+              {t('reset')}
             </button>
           </section>
 
@@ -208,15 +216,15 @@ function TrackingPage({
               onChange={handleJogRpmChange}
             />
             <em>
-              <small>Langsam</small>
-              <small>Schnell</small>
+              <small>{t('jogSlow')}</small>
+              <small>{t('jogFast')}</small>
             </em>
           </label>
         </aside>
       </section>
 
       <p className="tracking-context">
-        {bearingData.label} · {bearingData.rollerCount} Roller ·{' '}
+        {bearingData.label} · {bearingData.rollerCount} {t('roller')} ·{' '}
         {bearingData.bearingType}
       </p>
     </div>

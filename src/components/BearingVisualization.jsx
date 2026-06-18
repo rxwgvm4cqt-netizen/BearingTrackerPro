@@ -8,7 +8,7 @@ import {
 
 const VISUAL_ROLLER_COUNT = 24
 
-function BearingVisualization({ bearingData, trackingState }) {
+function BearingVisualization({ bearingData, trackingState, t }) {
   const rollerCount = Math.max(1, bearingData.rollerCount || 198)
   const visualRollerCount = VISUAL_ROLLER_COUNT
   const visibleSuspectRollerIndex = trackingState.suspiciousRollerIndex ?? 0
@@ -46,13 +46,10 @@ function BearingVisualization({ bearingData, trackingState }) {
       className={`bearing-visualization ${
         trackingState.cageRunning ? 'is-cage-running' : ''
       }`}
-      aria-label="Lager-Visualisierung"
+      aria-label={t('bearingVisualization')}
     >
       <svg viewBox="0 0 400 400" role="img">
-        <title>
-          Statische Lageransicht für {bearingData.label} mit Ringen, Rollern,
-          Blattmarkern und Hörposition
-        </title>
+        <title>{t('bearingVisualizationTitle')} {bearingData.label}</title>
         <defs>
           <radialGradient id="bearingGlow" cx="50%" cy="50%" r="55%">
             <stop offset="0%" stopColor="#162026" />
@@ -223,7 +220,7 @@ function BearingVisualization({ bearingData, trackingState }) {
         <g className="listen-marker" filter="url(#softGlow)">
           <path d="M49 107 L72 96 L72 119 Z" />
           <circle cx={listenPosition.x} cy={listenPosition.y} r="8" />
-          <text x="34" y="88">10 Uhr</text>
+          <text x="34" y="88">{t('tenOClock')}</text>
         </g>
 
         <circle cx="200" cy="200" r="56" className="bearing-hub" />
