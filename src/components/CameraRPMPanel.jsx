@@ -13,15 +13,15 @@ const CAMERA_STATUS = {
   MOCK: 'mock',
 }
 
-const OCR_INTERVAL_MS = 1800
-const OCR_OUTPUT_WIDTH = 720
+const OCR_INTERVAL_MS = 800
+const OCR_OUTPUT_WIDTH = 360
 const OCR_ROI = {
-  height: 0.32,
-  left: 0.18,
-  top: 0.34,
-  width: 0.64,
+  height: 0.24,
+  left: 0.24,
+  top: 0.38,
+  width: 0.52,
 }
-const OCR_WHITELIST = '0123456789.,RPM rpm'
+const OCR_WHITELIST = '0123456789.,'
 
 const OCR_STATUS = {
   ERROR: 'error',
@@ -150,9 +150,11 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
   const videoRef = useRef(null)
   const ocrCanvasRef = useRef(null)
   const ocrActiveRef = useRef(false)
+  const ocrJobRunningRef = useRef(false)
   const ocrSamplesRef = useRef([])
   const ocrTimerRef = useRef(null)
   const ocrWorkerRef = useRef(null)
+  const stableOcrRpmRef = useRef(null)
   const streamRef = useRef(null)
   const [cameraStatus, setCameraStatus] = useState(CAMERA_STATUS.MOCK)
   const [cameraError, setCameraError] = useState('')
@@ -161,6 +163,7 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
   const [deviceListScanned, setDeviceListScanned] = useState(false)
   const [ocrCandidates, setOcrCandidates] = useState([])
   const [ocrError, setOcrError] = useState('')
+  const [ocrDurationMs, setOcrDurationMs] = useState(null)
   const [ocrRawText, setOcrRawText] = useState('')
   const [ocrRpm, setOcrRpm] = useState(null)
   const [stableOcrRpm, setStableOcrRpm] = useState(null)
@@ -210,7 +213,7 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
 
   const clearOcrTimer = () => {
     if (ocrTimerRef.current) {
-      window.clearTimeout(ocrTimerRef.current)
+      window.clearInterval(ocrTimerRef.current)
       ocrTimerRef.current = null
     }
   }
@@ -223,7 +226,7 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
     const worker = await createWorker('eng')
     await worker.setParameters({
       tessedit_char_whitelist: OCR_WHITELIST,
-      tessedit_pageseg_mode: PSM.SINGLE_LINE,
+      tessedit_pageseg_mode: PSM.SINGLE_WORD,
     })
     ocrWorkerRef.current = worker
 
@@ -242,9 +245,12 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
 
   const stopOcr = async ({ resetToMock = true } = {}) => {
     ocrActiveRef.current = false
+    ocrJobRunningRef.current = false
     clearOcrTimer()
     ocrSamplesRef.current = []
+    stableOcrRpmRef.current = null
     setOcrCandidates([])
+    setOcrDurationMs(null)
     setOcrRawText('')
     setOcrRpm(null)
     setStableOcrRpm(null)
@@ -262,17 +268,26 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
     }
   }
 
-  const scheduleOcrPass = (delay = OCR_INTERVAL_MS) => {
+  const scheduleOcrPass = () => {
     clearOcrTimer()
-    ocrTimerRef.current = window.setTimeout(() => {
-      void runOcrPass()
-    }, delay)
+    ocrTimerRef.current = window.setInterval(() => {
+      if (!ocrJobRunningRef.current) {
+        void runOcrPass()
+      }
+    }, OCR_INTERVAL_MS)
   }
 
   async function runOcrPass() {
-    if (!ocrActiveRef.current || !streamRef.current) {
+    if (
+      !ocrActiveRef.current ||
+      !streamRef.current ||
+      ocrJobRunningRef.current
+    ) {
       return
     }
+
+    const startedAt = performance.now()
+    ocrJobRunningRef.current = true
 
     try {
       setOcrStatus((currentStatus) =>
@@ -296,8 +311,12 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
         setOcrStatus(OCR_STATUS.RUNNING)
         setOcrPlausibility('OCR unsicher')
       } else {
-        const nextSamples = [...ocrSamplesRef.current, parsedRpm].slice(-3)
-        const stableRpm = getStableRpmValue(nextSamples)
+        const nextSamples = [...ocrSamplesRef.current, parsedRpm].slice(-2)
+        const lastStableRpm = stableOcrRpmRef.current
+        const stableRpm =
+          lastStableRpm !== null && Math.abs(parsedRpm - lastStableRpm) <= 0.2
+            ? parsedRpm
+            : getStableRpmValue(nextSamples)
 
         ocrSamplesRef.current = nextSamples
 
@@ -307,6 +326,7 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
         } else {
           setOcrStatus(OCR_STATUS.RECOGNIZED)
           setOcrPlausibility('OCR stabil')
+          stableOcrRpmRef.current = stableRpm
           setStableOcrRpm(stableRpm)
           setOcrRpm(stableRpm)
           onStableRpm?.(stableRpm)
@@ -318,9 +338,8 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
       setOcrStatus(OCR_STATUS.ERROR)
       setOcrError(error?.message || 'OCR fehlgeschlagen')
     } finally {
-      if (ocrActiveRef.current) {
-        scheduleOcrPass()
-      }
+      setOcrDurationMs(Math.round(performance.now() - startedAt))
+      ocrJobRunningRef.current = false
     }
   }
 
@@ -428,15 +447,18 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
     }
 
     ocrActiveRef.current = true
+    stableOcrRpmRef.current = null
     ocrSamplesRef.current = []
     setOcrCandidates([])
+    setOcrDurationMs(null)
     setOcrError('')
     setOcrRawText('')
     setOcrRpm(null)
     setStableOcrRpm(null)
     setOcrPlausibility('Stabilisierung laeuft')
     setOcrStatus(OCR_STATUS.RUNNING)
-    scheduleOcrPass(0)
+    scheduleOcrPass()
+    void runOcrPass()
   }
 
   const handleStopOcr = () => {
@@ -564,6 +586,7 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
           <span>{ocrPlausibility}</span>
           <span>Kandidat {ocrRpm === null ? '--' : ocrRpm.toFixed(2)}</span>
           <span>Stabil {stableOcrRpm === null ? '--' : stableOcrRpm.toFixed(2)}</span>
+          <span>OCR Dauer {ocrDurationMs === null ? '--' : ocrDurationMs} ms</span>
           {ocrCandidates.length > 0 && (
             <small>
               Kandidaten:{' '}

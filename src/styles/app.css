@@ -367,12 +367,12 @@ h2 {
 
 .camera-rpm-panel__ocr-roi {
   position: absolute;
-  top: 34%;
-  left: 18%;
+  top: 38%;
+  left: 24%;
   z-index: 2;
   display: grid;
-  width: 64%;
-  height: 32%;
+  width: 52%;
+  height: 24%;
   align-items: start;
   justify-items: start;
   border: 1px solid rgba(42, 212, 255, 0.92);
