@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { PSM, createWorker } from 'tesseract.js'
-import { getStableRpmValue, parseRpmFromText } from '../utils/ocrRpm'
+import {
+  getRpmCandidatesFromText,
+  getStableRpmValue,
+  parseRpmFromText,
+} from '../utils/ocrRpm'
 
 const CAMERA_STATUS = {
   BLOCKED: 'blocked',
@@ -10,6 +14,13 @@ const CAMERA_STATUS = {
 }
 
 const OCR_INTERVAL_MS = 1800
+const OCR_OUTPUT_WIDTH = 720
+const OCR_ROI = {
+  height: 0.32,
+  left: 0.18,
+  top: 0.34,
+  width: 0.64,
+}
 const OCR_WHITELIST = '0123456789.,RPM rpm'
 
 const OCR_STATUS = {
@@ -24,18 +35,77 @@ export function captureFrameForOCR(videoElement, canvasElement) {
     throw new Error('OCR-Bildquelle nicht verfuegbar')
   }
 
-  const width = videoElement.videoWidth || videoElement.clientWidth
-  const height = videoElement.videoHeight || videoElement.clientHeight
+  const sourceVideoWidth = videoElement.videoWidth
+  const sourceVideoHeight = videoElement.videoHeight
+  const previewWidth = videoElement.clientWidth
+  const previewHeight = videoElement.clientHeight
 
-  if (!width || !height) {
+  if (!sourceVideoWidth || !sourceVideoHeight || !previewWidth || !previewHeight) {
     throw new Error('Kamerabild noch nicht bereit')
   }
 
-  canvasElement.width = width
-  canvasElement.height = height
+  const coverScale = Math.max(
+    previewWidth / sourceVideoWidth,
+    previewHeight / sourceVideoHeight,
+  )
+  const renderedVideoWidth = sourceVideoWidth * coverScale
+  const renderedVideoHeight = sourceVideoHeight * coverScale
+  const hiddenVideoX = (renderedVideoWidth - previewWidth) / 2
+  const hiddenVideoY = (renderedVideoHeight - previewHeight) / 2
+  const roiPreviewX = OCR_ROI.left * previewWidth
+  const roiPreviewY = OCR_ROI.top * previewHeight
+  const roiPreviewWidth = OCR_ROI.width * previewWidth
+  const roiPreviewHeight = OCR_ROI.height * previewHeight
+  const sourceX = Math.max(0, (roiPreviewX + hiddenVideoX) / coverScale)
+  const sourceY = Math.max(0, (roiPreviewY + hiddenVideoY) / coverScale)
+  const sourceWidth = Math.min(
+    sourceVideoWidth - sourceX,
+    roiPreviewWidth / coverScale,
+  )
+  const sourceHeight = Math.min(
+    sourceVideoHeight - sourceY,
+    roiPreviewHeight / coverScale,
+  )
+
+  if (sourceWidth <= 0 || sourceHeight <= 0) {
+    throw new Error('OCR-Bereich ausserhalb des Kamerabildes')
+  }
+
+  const outputScale = OCR_OUTPUT_WIDTH / sourceWidth
+  const outputWidth = Math.round(sourceWidth * outputScale)
+  const outputHeight = Math.round(sourceHeight * outputScale)
+
+  canvasElement.width = outputWidth
+  canvasElement.height = outputHeight
 
   const context = canvasElement.getContext('2d', { willReadFrequently: true })
-  context.drawImage(videoElement, 0, 0, width, height)
+  context.drawImage(
+    videoElement,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    0,
+    0,
+    outputWidth,
+    outputHeight,
+  )
+
+  const imageData = context.getImageData(0, 0, outputWidth, outputHeight)
+  const pixels = imageData.data
+
+  for (let index = 0; index < pixels.length; index += 4) {
+    const luminance =
+      pixels[index] * 0.299 + pixels[index + 1] * 0.587 + pixels[index + 2] * 0.114
+    const contrasted = (luminance - 128) * 1.7 + 128
+    const threshold = contrasted > 150 ? 255 : 0
+
+    pixels[index] = threshold
+    pixels[index + 1] = threshold
+    pixels[index + 2] = threshold
+  }
+
+  context.putImageData(imageData, 0, 0)
 
   return canvasElement
 }
@@ -89,9 +159,11 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
   const [selectedDeviceId, setSelectedDeviceId] = useState('')
   const [deviceListMessage, setDeviceListMessage] = useState('')
   const [deviceListScanned, setDeviceListScanned] = useState(false)
+  const [ocrCandidates, setOcrCandidates] = useState([])
   const [ocrError, setOcrError] = useState('')
   const [ocrRawText, setOcrRawText] = useState('')
   const [ocrRpm, setOcrRpm] = useState(null)
+  const [stableOcrRpm, setStableOcrRpm] = useState(null)
   const [ocrStatus, setOcrStatus] = useState(OCR_STATUS.OFF)
   const [ocrPlausibility, setOcrPlausibility] = useState('OCR aus')
   const [videoDevices, setVideoDevices] = useState([])
@@ -172,6 +244,10 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
     ocrActiveRef.current = false
     clearOcrTimer()
     ocrSamplesRef.current = []
+    setOcrCandidates([])
+    setOcrRawText('')
+    setOcrRpm(null)
+    setStableOcrRpm(null)
     setOcrStatus(OCR_STATUS.OFF)
     setOcrPlausibility('OCR aus')
 
@@ -209,13 +285,16 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
       const {
         data: { text },
       } = await worker.recognize(frame)
+      const candidates = getRpmCandidatesFromText(text)
       const parsedRpm = parseRpmFromText(text)
 
       setOcrRawText(text.trim())
+      setOcrCandidates(candidates.map((candidate) => candidate.value))
       setOcrRpm(parsedRpm)
 
       if (parsedRpm === null) {
-        setOcrPlausibility('keine plausible RPM')
+        setOcrStatus(OCR_STATUS.RUNNING)
+        setOcrPlausibility('OCR unsicher')
       } else {
         const nextSamples = [...ocrSamplesRef.current, parsedRpm].slice(-3)
         const stableRpm = getStableRpmValue(nextSamples)
@@ -223,10 +302,12 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
         ocrSamplesRef.current = nextSamples
 
         if (stableRpm === null) {
-          setOcrPlausibility('Stabilisierung laeuft')
+          setOcrStatus(OCR_STATUS.RUNNING)
+          setOcrPlausibility('OCR unsicher')
         } else {
           setOcrStatus(OCR_STATUS.RECOGNIZED)
-          setOcrPlausibility('plausibel')
+          setOcrPlausibility('OCR stabil')
+          setStableOcrRpm(stableRpm)
           setOcrRpm(stableRpm)
           onStableRpm?.(stableRpm)
         }
@@ -348,7 +429,11 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
 
     ocrActiveRef.current = true
     ocrSamplesRef.current = []
+    setOcrCandidates([])
     setOcrError('')
+    setOcrRawText('')
+    setOcrRpm(null)
+    setStableOcrRpm(null)
     setOcrPlausibility('Stabilisierung laeuft')
     setOcrStatus(OCR_STATUS.RUNNING)
     scheduleOcrPass(0)
@@ -367,9 +452,9 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
 
   const ocrStatusLabel =
     ocrStatus === OCR_STATUS.RUNNING
-      ? 'OCR laeuft'
+      ? 'OCR unsicher'
       : ocrStatus === OCR_STATUS.RECOGNIZED
-        ? 'OCR erkannt'
+        ? 'OCR stabil'
         : ocrStatus === OCR_STATUS.ERROR
           ? 'OCR Fehler'
           : 'OCR aus'
@@ -398,6 +483,9 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
           aria-hidden="true"
           className="camera-rpm-panel__ocr-canvas"
         />
+        <div className="camera-rpm-panel__ocr-roi" aria-hidden="true">
+          <span>RPM Bereich</span>
+        </div>
         {cameraStatus !== CAMERA_STATUS.LIVE && <span>Camera Preview</span>}
       </div>
       <div className="camera-rpm-panel__content">
@@ -473,8 +561,18 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
         </div>
         <div className="camera-rpm-panel__ocr-readout">
           <span>{ocrStatusLabel}</span>
-          <span>RPM {ocrRpm === null ? '--' : ocrRpm.toFixed(2)}</span>
           <span>{ocrPlausibility}</span>
+          <span>Kandidat {ocrRpm === null ? '--' : ocrRpm.toFixed(2)}</span>
+          <span>Stabil {stableOcrRpm === null ? '--' : stableOcrRpm.toFixed(2)}</span>
+          {ocrCandidates.length > 0 && (
+            <small>
+              Kandidaten:{' '}
+              {ocrCandidates
+                .slice(0, 4)
+                .map((candidate) => candidate.toFixed(2))
+                .join(', ')}
+            </small>
+          )}
           {ocrRawText && <small>Text: {ocrRawText.slice(0, 28)}</small>}
         </div>
         {ocrError && <span className="camera-rpm-panel__error">{ocrError}</span>}
