@@ -13,15 +13,15 @@ const CAMERA_STATUS = {
   MOCK: 'mock',
 }
 
-const OCR_INTERVAL_MS = 800
-const OCR_OUTPUT_WIDTH = 360
+const OCR_INTERVAL_MS = 1800
+const OCR_OUTPUT_WIDTH = 520
 const OCR_ROI = {
-  height: 0.24,
-  left: 0.24,
-  top: 0.38,
-  width: 0.52,
+  height: 0.32,
+  left: 0.18,
+  top: 0.34,
+  width: 0.64,
 }
-const OCR_WHITELIST = '0123456789.,'
+const OCR_WHITELIST = '0123456789.,RPM rpm'
 
 const OCR_STATUS = {
   ERROR: 'error',
@@ -226,7 +226,7 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
     const worker = await createWorker('eng')
     await worker.setParameters({
       tessedit_char_whitelist: OCR_WHITELIST,
-      tessedit_pageseg_mode: PSM.SINGLE_WORD,
+      tessedit_pageseg_mode: PSM.SINGLE_LINE,
     })
     ocrWorkerRef.current = worker
 
@@ -311,12 +311,8 @@ function CameraRPMPanel({ onOcrStop, onStableRpm, rpm }) {
         setOcrStatus(OCR_STATUS.RUNNING)
         setOcrPlausibility('OCR unsicher')
       } else {
-        const nextSamples = [...ocrSamplesRef.current, parsedRpm].slice(-2)
-        const lastStableRpm = stableOcrRpmRef.current
-        const stableRpm =
-          lastStableRpm !== null && Math.abs(parsedRpm - lastStableRpm) <= 0.2
-            ? parsedRpm
-            : getStableRpmValue(nextSamples)
+        const nextSamples = [...ocrSamplesRef.current, parsedRpm].slice(-3)
+        const stableRpm = getStableRpmValue(nextSamples)
 
         ocrSamplesRef.current = nextSamples
 

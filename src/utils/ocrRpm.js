@@ -1,6 +1,6 @@
 const MAX_RPM = 30
 const MIN_RPM = 0
-const STABLE_RPM_TOLERANCE = 0.2
+const STABLE_RPM_TOLERANCE = 0.15
 
 function isPlausibleRpm(value) {
   return Number.isFinite(value) && value >= MIN_RPM && value <= MAX_RPM
@@ -99,17 +99,26 @@ export function parseRpmFromText(text) {
 }
 
 export function getStableRpmValue(values, tolerance = STABLE_RPM_TOLERANCE) {
-  const recentValues = values.filter(isPlausibleRpm).slice(-2)
+  const recentValues = values.filter(isPlausibleRpm).slice(-3)
 
   if (recentValues.length < 2) {
     return null
   }
 
-  const [previousValue, latestValue] = recentValues
+  for (let firstIndex = 0; firstIndex < recentValues.length; firstIndex += 1) {
+    for (
+      let secondIndex = firstIndex + 1;
+      secondIndex < recentValues.length;
+      secondIndex += 1
+    ) {
+      const firstValue = recentValues[firstIndex]
+      const secondValue = recentValues[secondIndex]
 
-  if (Math.abs(previousValue - latestValue) > tolerance) {
-    return null
+      if (Math.abs(firstValue - secondValue) <= tolerance) {
+        return (firstValue + secondValue) / 2
+      }
+    }
   }
 
-  return (previousValue + latestValue) / 2
+  return null
 }
